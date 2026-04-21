@@ -1,13 +1,29 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.smartcampus.exception;
 
-/**
- *
- * @author WATHMI
- */
-public class LinkedResourceNotFoundExceptionMapper {
-    
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.ExceptionMapper;
+import javax.ws.rs.ext.Provider;
+import java.util.HashMap;
+import java.util.Map;
+
+
+ //Part 5.2 - Maps LinkedResourceNotFoundException to HTTP 422 Unprocessable Entity.
+
+@Provider
+public class LinkedResourceNotFoundExceptionMapper implements ExceptionMapper<LinkedResourceNotFoundException> {
+
+    @Override
+    public Response toResponse(LinkedResourceNotFoundException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 422);
+        body.put("error", "Unprocessable Entity");
+        body.put("message", ex.getMessage());
+        body.put("hint", "Ensure the roomId in your request body refers to an existing room.");
+
+        return Response.status(422)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(body)
+                .build();
+    }
 }

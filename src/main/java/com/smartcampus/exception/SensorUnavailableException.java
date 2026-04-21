@@ -1,13 +1,11 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.smartcampus.exception;
 
-/**
- *
- * @author WATHMI
- */
-public class SensorUnavailableException {
-    
+
+ // Part 5.3 - Thrown when a reading is POSTed to a sensor in MAINTENANCE status.
+ // Mapped to HTTP 403 Forbidden by SensorUnavailableExceptionMapper.
+ 
+public class SensorUnavailableException extends RuntimeException {
+    public SensorUnavailableException(String message) {
+        super(message);
+    }
 }
