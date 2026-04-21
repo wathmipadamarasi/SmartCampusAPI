@@ -1,0 +1,8 @@
+target/ 
+*.class 
+*.war 
+*.ear 
+nb-configuration.xml 
+nbactions.xml 
+.nb-gradle/ 
+nbproject/private/
