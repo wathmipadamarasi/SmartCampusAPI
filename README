@@ -1,0 +1,369 @@
+# Smart Campus Sensor & Room Management API
+
+**Module:** 5COSC022W - Client-Server Architectures
+**Student:** wathmipadamarasi
+**Technology Stack:** Java · JAX-RS (Jersey 2.39.1) · Maven · Apache Tomcat
+**Base URL:** http://localhost:8080/SmartCampusAPI/api/v1
+
+---
+
+## API Design Overview
+
+This RESTful API manages the Smart Campus initiative, providing 
+endpoints to manage physical Rooms and the Sensors deployed within 
+them, along with a historical log of Sensor Readings.
+
+### Resource Hierarchy
+
+/api/v1
+├── /                        ← Discovery (HATEOAS metadata)
+├── /rooms                   ← Room collection
+│   └── /{roomId}            ← Individual room
+└── /sensors                 ← Sensor collection
+    └── /{sensorId}
+        └── /readings        ← Sub-resource: sensor reading history
+
+### In-Memory Data Storage
+All data is stored using ConcurrentHashMap (thread-safe) inside a 
+singleton DataStore class. No database is used.
+
+### Design Principles Applied
+- Proper HTTP status codes (200, 201, 400, 403, 404, 409, 422, 500)
+- JSON-only request/response bodies
+- Resource nesting via JAX-RS Sub-Resource Locator pattern
+- Centralised error handling via Exception Mappers
+- Cross-cutting concerns (logging) via JAX-RS Filters
+
+---
+
+## Project Structure
+
+SmartCampusAPI/
+├── pom.xml
+├── src/main/webapp/WEB-INF/web.xml
+└── src/main/java/com/smartcampus/
+    ├── SmartCampusApplication.java
+    ├── DataStore.java
+    ├── model/
+    │   ├── Room.java
+    │   ├── Sensor.java
+    │   └── SensorReading.java
+    ├── resource/
+    │   ├── DiscoveryResource.java
+    │   ├── RoomResource.java
+    │   ├── SensorResource.java
+    │   └── SensorReadingResource.java
+    ├── exception/
+    │   ├── RoomNotEmptyException.java
+    │   ├── RoomNotEmptyExceptionMapper.java
+    │   ├── LinkedResourceNotFoundException.java
+    │   ├── LinkedResourceNotFoundExceptionMapper.java
+    │   ├── SensorUnavailableException.java
+    │   ├── SensorUnavailableExceptionMapper.java
+    │   └── GlobalExceptionMapper.java
+    └── filter/
+        └── LoggingFilter.java
+
+---
+
+## How to Build and Run
+
+### Prerequisites
+- Java 11 or above
+- Apache Maven 3.6+
+- Apache Tomcat 9.x
+- NetBeans IDE 19+
+
+### Step 1 - Clone the Repository
+git clone https://github.com/wathmipadamarasi/SmartCampusAPI.git
+cd SmartCampusAPI
+
+### Step 2 - Open in NetBeans
+1. Open NetBeans
+2. File → Open Project
+3. Browse to the SmartCampusAPI folder
+4. Click Open Project
+
+### Step 3 - Build the Project
+Right-click the project → Clean and Build
+OR run in terminal:
+mvn clean package
+
+### Step 4 - Run the Project
+Right-click the project → Run
+Tomcat will start automatically and deploy the WAR file.
+
+### Step 5 - Verify
+Open browser and visit:
+http://localhost:8080/SmartCampusAPI/api/v1
+You should see a JSON discovery response.
+
+---
+
+## Sample curl Commands
+
+### 1. Discovery Endpoint
+curl -X GET http://localhost:8080/SmartCampusAPI/api/v1
+Expected: 200 OK with API metadata and resource links.
+
+### 2. Get All Rooms
+curl -X GET http://localhost:8080/SmartCampusAPI/api/v1/rooms
+Expected: 200 OK with list of all rooms.
+
+### 3. Create a New Room
+curl -X POST http://localhost:8080/SmartCampusAPI/api/v1/rooms \
+  -H "Content-Type: application/json" \
+  -d '{"id":"ENG-205","name":"Engineering Lab","capacity":40}'
+Expected: 201 Created with the new room object.
+
+### 4. Create a New Sensor
+curl -X POST http://localhost:8080/SmartCampusAPI/api/v1/sensors \
+  -H "Content-Type: application/json" \
+  -d '{"id":"OCC-001","type":"Occupancy","status":"ACTIVE","currentValue":0,"roomId":"LIB-301"}'
+Expected: 201 Created with the new sensor object.
+
+### 5. Filter Sensors by Type
+curl -X GET "http://localhost:8080/SmartCampusAPI/api/v1/sensors?type=CO2"
+Expected: 200 OK with only CO2 sensors.
+
+### 6. Post a Sensor Reading
+curl -X POST http://localhost:8080/SmartCampusAPI/api/v1/sensors/TEMP-001/readings \
+  -H "Content-Type: application/json" \
+  -d '{"value":24.7}'
+Expected: 201 Created. Also updates TEMP-001 currentValue to 24.7.
+
+### 7. Get Reading History
+curl -X GET http://localhost:8080/SmartCampusAPI/api/v1/sensors/TEMP-001/readings
+Expected: 200 OK with list of all historical readings.
+
+### 8. Delete Room with Sensors (409 Conflict)
+curl -X DELETE http://localhost:8080/SmartCampusAPI/api/v1/rooms/LIB-301
+Expected: 409 Conflict - room still has sensors assigned.
+
+### 9. Create Sensor with Invalid roomId (422 Error)
+curl -X POST http://localhost:8080/SmartCampusAPI/api/v1/sensors \
+  -H "Content-Type: application/json" \
+  -d '{"id":"GAS-999","type":"Gas","status":"ACTIVE","currentValue":0,"roomId":"GHOST-ROOM"}'
+Expected: 422 Unprocessable Entity.
+
+### 10. Post Reading to MAINTENANCE Sensor (403 Forbidden)
+curl -X POST http://localhost:8080/SmartCampusAPI/api/v1/sensors/TEMP-001/readings \
+  -H "Content-Type: application/json" \
+  -d '{"value":99.9}'
+Expected: 403 Forbidden.
+
+---
+
+## Report: Answers to Coursework Questions
+
+### Part 1.1 - JAX-RS Resource Lifecycle and In-Memory Data Management
+
+By default, JAX-RS creates a new instance of each Resource class for 
+every incoming HTTP request (request-scoped lifecycle). This means any 
+instance variables declared inside a resource class are initialised 
+fresh for every request and are not shared between requests.
+
+This has a direct implication for in-memory data storage: if data were 
+stored as instance variables on the resource class, it would be lost 
+the moment a request completes. To solve this, all persistent data in 
+this project is stored in a singleton DataStore class using 
+ConcurrentHashMap, which is a thread-safe implementation of HashMap 
+from java.util.concurrent. Because ConcurrentHashMap allows multiple 
+threads to read and perform localised writes simultaneously without 
+requiring full synchronisation locks, it prevents race conditions where 
+two concurrent requests could corrupt shared data. The singleton ensures 
+that every request-scoped resource instance accesses the same shared 
+data structure, achieving data persistence across the lifetime of the 
+running server.
+
+---
+
+### Part 1.2 - HATEOAS and Hypermedia in RESTful Design
+
+HATEOAS (Hypermedia As The Engine Of Application State) is considered 
+a hallmark of mature RESTful design because it makes the API 
+self-descriptive and discoverable. Instead of a client needing to know 
+every URL in advance from static documentation, each API response 
+includes embedded links that tell the client what actions are available 
+and where to find related resources.
+
+For client developers, this offers two major advantages. First, it 
+dramatically reduces coupling — if the server changes a URL, clients 
+following the hypermedia links adapt automatically rather than breaking. 
+Second, it lowers the onboarding barrier: a developer can explore the 
+entire API by starting at a single root endpoint and following the links 
+provided, much like browsing a website. In contrast, static 
+documentation becomes stale the moment the API evolves, creating a 
+maintenance burden and a source of bugs.
+
+---
+
+### Part 2.1 - Returning IDs vs Full Objects in List Responses
+
+When a GET /rooms endpoint returns only a list of IDs, the client must 
+make a separate GET /rooms/{id} request for each room it wants full 
+details on. This is known as the N+1 problem. For a campus with hundreds 
+of rooms, this generates excessive network round-trips, increasing 
+latency and server load.
+
+Returning full room objects in the list response trades a larger initial 
+payload for far fewer HTTP requests. For consumers such as facility 
+management dashboards or building automation systems that need to process 
+all room data at once, this is clearly superior. The trade-off is only 
+relevant when clients routinely need just a subset of the data, in which 
+case pagination or sparse fieldsets would be better solutions.
+
+---
+
+### Part 2.2 - Is DELETE Idempotent in This Implementation?
+
+RFC 7231 defines an idempotent operation as one where making the same 
+request multiple times produces the same server-side state. Under that 
+definition, DELETE is considered idempotent because after the first 
+call the room is gone, and after the second call the room is still gone. 
+The server state is identical.
+
+However, in this implementation the HTTP response code differs: the 
+first DELETE returns 200 OK, while any subsequent DELETE on the same ID 
+returns 404 Not Found since the room no longer exists. This is a 
+pragmatic and widely accepted approach. The idempotency guarantee 
+relates to server state, not to response codes. A 404 on repeated 
+deletion is not a failure — it accurately reflects reality. No data 
+corruption or inconsistency is introduced by sending the same DELETE 
+request multiple times.
+
+---
+
+### Part 3.1 - Consequences of @Consumes Media Type Mismatch
+
+The @Consumes(MediaType.APPLICATION_JSON) annotation declares that the 
+endpoint only accepts request bodies formatted as application/json. If 
+a client sends a request with a Content-Type of text/plain or 
+application/xml, JAX-RS automatically returns an HTTP 415 Unsupported 
+Media Type response without ever invoking the resource method. This is 
+handled entirely by the JAX-RS runtime content negotiation mechanism. 
+The benefit is that malformed or incompatible payloads are rejected at 
+the framework layer before any business logic executes, acting as a 
+first line of input validation.
+
+---
+
+### Part 3.2 - @QueryParam vs Path Segment for Filtering
+
+Using @QueryParam for filtering (e.g. GET /sensors?type=CO2) is the 
+correct RESTful pattern for several reasons. Query parameters are 
+semantically optional — their absence returns the full unfiltered 
+collection, which is natural. They clearly communicate that we are 
+refining a search over a collection rather than identifying a specific 
+resource.
+
+In contrast, embedding the filter in the path (/sensors/type/CO2) 
+implies that type/CO2 is part of the resource identity — a specific 
+uniquely addressable thing. This is semantically misleading. It also 
+makes combining multiple filters awkward, whereas query parameters 
+compose naturally: ?type=CO2&status=ACTIVE. Additionally, 
+query-parameter-based filtering plays well with caching infrastructure 
+which treats the path as the primary cache key.
+
+---
+
+### Part 4.1 - Benefits of the Sub-Resource Locator Pattern
+
+The Sub-Resource Locator pattern allows JAX-RS to delegate handling of 
+nested paths to dedicated classes. In this project, SensorResource 
+handles /sensors and /sensors/{sensorId}, while SensorReadingResource 
+exclusively handles the /readings sub-path.
+
+The architectural benefits are significant. Each class has a single 
+focused responsibility (Single Responsibility Principle), making it 
+easier to test, maintain, and extend independently. Contrast this with 
+the alternative: one enormous resource class handling every possible 
+path. As the API grows, such a monolithic controller becomes 
+unmanageable and harder to read. Delegation to sub-resources naturally 
+mirrors the hierarchical structure of the domain where a reading belongs 
+to a sensor, making the code architecture self-documenting.
+
+---
+
+### Part 5.2 - Why HTTP 422 Is More Semantically Accurate Than 404
+
+HTTP 404 Not Found communicates that the requested URL endpoint does 
+not exist on the server. When a client POSTs to /api/v1/sensors, that 
+URL is perfectly valid and the endpoint exists — so a 404 would be 
+factually incorrect and confusing.
+
+The real problem is that the JSON payload contains a roomId value that 
+references a room which does not exist in the system — a semantic 
+validation failure rather than a routing failure. HTTP 422 Unprocessable 
+Entity was designed precisely for this scenario: the request was 
+syntactically valid but the server cannot process it because of a 
+logical inconsistency in the payload content. This gives client 
+developers a much clearer signal that the request structure is fine but 
+the data inside it references something that does not exist.
+
+---
+
+### Part 5.3 - Why HTTP 403 Forbidden for a MAINTENANCE Sensor
+
+HTTP 403 Forbidden is used here because the client request is 
+understood and valid — the sensor exists and the URL is correct — but 
+the server is refusing to process it due to the current state of the 
+resource. A sensor in MAINTENANCE status has been deliberately taken 
+offline by an administrator, meaning it is physically disconnected and 
+cannot accept new readings.
+
+The 403 status communicates that this is a refusal based on business 
+rules and resource state, not a client error in forming the request. 
+Using 404 would be wrong because the sensor exists in the system. Using 
+400 would be wrong because the request body is valid JSON. HTTP 403 
+accurately signals that the server understands the request but is 
+refusing it based on the current state of the resource.
+
+---
+
+### Part 5.4 - Security Risks of Exposing Stack Traces
+
+Exposing raw Java stack traces in API error responses is a serious 
+security vulnerability for several reasons.
+
+First, library and version fingerprinting: stack traces include 
+fully-qualified class names such as org.glassfish.jersey.server or 
+com.fasterxml.jackson.databind. Attackers use these to identify exact 
+library versions and cross-reference them against public CVE databases 
+to find known exploits.
+
+Second, internal architecture disclosure: package names and class 
+hierarchies reveal the application internal structure, design patterns, 
+and technology choices that should remain private.
+
+Third, file path exposure: stack frames often include absolute file 
+paths on the server which reveals the directory layout and can assist 
+path traversal attacks.
+
+Fourth, logic flow revelation: the sequence of method calls in a trace 
+can expose business logic, helping attackers craft inputs designed to 
+trigger vulnerable code paths.
+
+The GlobalExceptionMapper solves this by catching all uncaught 
+exceptions, logging the full detail server-side only, and returning a 
+sanitised generic message to the client.
+
+---
+
+### Part 5.5 - Why JAX-RS Filters Are Superior to Inline Logging
+
+Inserting Logger.info() statements manually inside every resource method 
+has significant drawbacks. It violates the DRY principle (Do not Repeat 
+Yourself) as the same boilerplate appears across dozens of methods. It 
+is easy to forget — a newly added endpoint might go unlogged. It 
+pollutes resource classes with infrastructure concerns making them 
+harder to read.
+
+JAX-RS Filters address all of these issues by implementing logging as a 
+cross-cutting concern at the framework level. The LoggingFilter class 
+intercepts every request and response automatically regardless of which 
+resource handles them. This guarantees consistent complete coverage with 
+no risk of omission. It also means the format and behaviour of logging 
+can be changed in a single class rather than hunting through every 
+resource method. This separation of concerns is a foundational principle 
+of professional maintainable API design.
