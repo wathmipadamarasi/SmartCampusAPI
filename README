@@ -1,9 +1,11 @@
 # Smart Campus Sensor & Room Management API
 
-**Module:** 5COSC022W - Client-Server Architectures
-**Student:** wathmipadamarasi
-**Technology Stack:** Java · JAX-RS (Jersey 2.39.1) · Maven · Apache Tomcat
-**Base URL:** http://localhost:8080/SmartCampusAPI/api/v1
+  Module: 5COSC022W - Client-Server Architectures
+  Student: wathmi Kodippili
+  Studet No: 20232837
+  UOW No: w2120588
+  Technology Stack: Java · JAX-RS (Jersey 2.39.1) · Maven · Apache Tomcat
+  Base URL: http://localhost:8080/SmartCampusAPI/api/v1
 
 ---
 
