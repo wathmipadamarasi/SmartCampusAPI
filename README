@@ -278,6 +278,8 @@ curl -X GET http://localhost:8080/SmartCampusAPI/api/v1/sensors/TEMP-001/reading
 | 403 Forbidden | SensorUnavailableException | POST reading to a MAINTENANCE sensor |
 | 404 Not Found | — | Resource ID does not exist |
 | 409 Conflict | RoomNotEmptyException | DELETE room that still has sensors assigned |
+| 422 Unprocessable Entity | LinkedResourceNotFoundException | POST sensor with a roomId that does not exist |
+| 500 Internal Server Error | GlobalExceptionMapper | Any unexpected runtime error — no stack trace exposed |
 ---
 
 ## Report — Answers to Coursework Questions
